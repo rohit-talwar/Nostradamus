@@ -1,0 +1,295 @@
+import random
+from numpy import *
+
+class DataItem:
+	def __init__(self,label,linearr):
+		self.feature = linearr[:]
+		self.classLabel = label
+		
+class Dataset:
+	def __init__(self):
+		self.data = []
+		
+	def readData(self,filename):
+		label = 4
+		delim =','
+		fd = open(filename)
+		clabel = {}
+		cid = 1
+		for line in fd:
+			if(len(line)<2):
+				continue
+			line = line.strip()
+			line = line.replace("\n","")
+			a = line.split(delim)
+			if a[label] not in clabel:
+				clabel[a[label]] = cid
+				cid = cid + 1
+			linearr = [1]
+			for i in range(len(a)):
+				if(i!=label):
+					linearr.append(float(a[i]))
+			tmp = DataItem(clabel[a[label]],linearr)
+			self.data.append(tmp)
+
+	def writeData(self,filename):
+		fd = open(filename,'w')
+		for i in range(len(self.data)):
+			fd.write(str(self.data[i].classLabel))
+			fd.write(" ")
+			for element in self.data[i].feature:
+				fd.write(str(element))
+				fd.write(" ")	
+			fd.write('\n')
+
+
+def splitDataset(complete,folds=2):
+	retsplit = []
+	length = len(complete.data)
+	randata = complete.data[:]
+	random.shuffle(randata)
+	#print randata
+	part = length/folds
+	rem = length
+	index = 0
+	for i in range(folds):
+        	small = Dataset()
+		rem = rem - part
+		if(rem<part):
+			part = part+rem
+      		for j in range(part):
+  			tmp = DataItem(randata[index].classLabel,randata[index].feature)
+			small.data.append(tmp)
+			index = index+1
+		retsplit.append(small)	
+        return retsplit
+
+# merging numdatasets given by indices to merge
+def mergeDatasets(toMerge, numDatasets,indicesToMerge):	
+	tmp = Dataset()
+	for i in indicesToMerge:
+		for dat in toMerge[i].data:
+			tmp.data.append(dat)
+	return tmp	
+		
+
+class LinearClassifier:
+	def __init__(self):
+		self.yk = []       	 # this is also a list of lists keeping the different datasets used to arrive at a value of 'a'
+		self.label = []   	 # similarly this is the correspinding labels of the tuples in yk
+		self.a = []        	 # this is actually a list of lists for the different lines made
+		self.distinctLabel = []  # this is the actual number of classlabels present in the dataset
+		self.ansA = []		 # this stores the answer/class(es) which was considered for generating a
+		self.dim = 0		 # the dimension of the feature vector
+# this is wrong acc to my interpretation	
+	def loadModel(self,modelfilename):
+		fd = open(modelfilename)
+		for line in fd:
+			if(len(line)<3):
+				continue
+			line = line.strip()
+			line = line.replace("\n","")
+			line = line.split(" ")
+			self.label.append(int(line[0]))
+			if(int(line[0]) not in self.distinctLabel):
+				self.distinctLabel.append(int(line[0]))
+			tmp = []
+			for i in range(len(line)):
+				if(i==0):
+					tmp.append(1)
+					continue
+				tmp.append(float(i))
+			self.yk.append(tmp)
+
+# similarly this is also wrong acc to my interpretation
+	def saveModel(self,modelfilename):
+		fd = open(modelfilename,'w')
+		for i in range(len(self.label)):
+			fd.write(str(self.yk[i]))
+			fd.write(" ")
+			fd.write(str(self.label[i]))
+			fd.write("\n")
+
+# this is the main thing--		
+  	def learnModel(self,trainData,algorithm,combination):
+		for train in trainData.data:
+			tmp = train.feature[:]
+			self.yk.append(tmp)
+			self.label.append(train.classLabel)
+			if(train.classLabel not in self.distinctLabel):
+				self.distinctLabel.append(train.classLabel) 
+		self.dim = len(self.yk[0])
+		#print self.dim
+		trainset = []
+		classet = []
+		if(combination==1):
+			for clas in self.distinctLabel:
+				classet.append(clas)
+				train = []
+				for i in range(len(self.yk)):
+					if(self.label[i] == clas):
+						train.append(self.yk[i])
+					else:
+						tmp = [el * -1 for el in self.yk[i] ]
+						train.append(tmp)
+				trainset.append(train)
+			if(algorithm==1):
+				for i in range(len(trainset)):
+					self.ansA.append(classet[i])
+					tmpA = ones((self.dim,1),dtype = int)
+					epoch = 0
+					unclassified = True
+					while (unclassified == True):
+						epoch = epoch + 1
+						if(epoch >= 1500):
+							break
+						count = 0
+						for yi in trainset[i]:
+							arrYi = array(yi)
+							res = dot(arrYi,tmpA)
+							if(res<0):
+								count = count+1
+								arrYi = arrYi.flatten()
+								tmpA = tmpA.flatten()
+								tmpA = tmpA+arrYi
+								tmpA = tmpA.transpose()
+						if(count==0):
+							unclassified = False
+					print "result for"
+					print  classet[i],tmpA
+					self.a.append(tmpA)
+			if(algorithm==2):		
+				for i in range(len(trainset)):
+					unclassified = True
+					self.ansA.append(classet[i])
+					tmpA = ones((self.dim,1),dtype = int)
+					theta = len(trainset[i])*0.1   # error of 10 percent of the total sample set
+					epoch = 0
+					batchyk = zeros((self.dim,1),dtype=int)   # the start sum of the misclassified yks
+					while unclassified==True:
+						count = 0
+						epoch = epoch + 1
+						#adding the result of prev iteration
+						eta = random.random()
+						batchyk = batchyk.flatten()
+						tmpA = tmpA.flatten()
+						tmpA = tmpA + eta*batchyk
+						tmpA = tmpA.transpose()
+						
+						if(epoch>1500):
+							break
+						batchyk = zeros((self.dim,1),dtype=int)   # the start sum of the misclassified yks
+						for yi in trainset[i]:
+							arrYi = array(yi)
+							res = dot(arrYi,tmpA)
+							if(res<0):
+								count = count+1
+								arrYi = arrYi.flatten()
+								batchyk = batchyk.flatten()
+								batchyk = batchyk+arrYi
+								batchyk = batchyk.transpose()
+						if(count<=theta):
+							unclassified = False
+					print "result for"
+					print  classet[i],tmpA
+					self.a.append(tmpA)
+			if(algorithm==3):
+				b = 1  #  the selected margin
+				for i in range(len(trainset)):
+					self.ansA.append(classet[i])
+					tmpA = ones((self.dim,1),dtype = int)
+					#for epoch in range(100):
+					theta = len(trainset[i])*0.1   # error of 10 percent of the total sample set
+					unclassified = True
+					epoch = 0
+					while(unclassified == True):
+						count = 0
+						epoch = epoch +1
+						if(epoch>1500):
+							break
+						for yi in trainset[i]:
+							arrYi = array(yi)
+							res = dot(arrYi,tmpA)
+							if(res <= b):
+								count = count+1
+								mag = linalg.norm(arrYi)
+								naruto = (b-res)/(mag*mag)
+								eta = random.random()
+								eta = eta*naruto
+								arrYi = arrYi.flatten()
+								tmpA = tmpA.flatten()
+								tmpA = tmpA + eta*arrYi
+								tmpA = tmpA.transpose()
+						if(count <= theta):
+							unclassified = False
+					print "result for"
+					print  classet[i],tmpA
+					self.a.append(tmpA)
+			if(algorithm == 4):
+				b = 1  #  the selected margin
+				for i in range(len(trainset)):
+					self.ansA.append(classet[i])
+					tmpA = ones((self.dim,1),dtype = int)
+					#for epoch in range(100):
+					unclassified = True
+					theta = len(trainset[i])*0.1   # error of 10 percent of the total sample set
+					epoch = 0
+					batchyk = zeros((self.dim,1),dtype=int)   # the start sum of the misclassified yks
+					while(unclassified == True):
+						count = 0
+						epoch = epoch +1
+						eta = random.random()
+						batchyk = batchyk.flatten()
+						tmpA = tmpA.flatten()
+						tmpA = tmpA + eta*batchyk
+						tmpA = tmpA.transpose()
+						if(epoch>1500):
+							break
+						batchyk = zeros((self.dim,1),dtype=int)   # the start sum of the misclassified yks
+						for yi in trainset[i]:
+							arrYi = array(yi)
+							res = dot(arrYi,tmpA)
+							if(res <= b):
+								count = count+1
+								mag = linalg.norm(arrYi) #magnitude lol
+								naruto = (b-res)/(mag*mag)
+								arrYi = arrYi.flatten()
+								batchyk = batchyk.flatten()
+								batchyk = batchyk + naruto*arrYi
+								batchyk = batchyk.transpose()
+						
+#						if(count <= theta):
+#							unclassified = False
+						if(count <= theta):
+							unclassified = False
+					print "result for"
+					print  classet[i],tmpA
+					self.a.append(tmpA)
+			if(algorithm == 5):
+				for i in range(len(trainset)):
+					self.ansA.append(classet[i])
+					b = ones((len(trainset[i]),1),dtype = int)
+					matY = array(trainset[i])
+					transY = matY.transpose()
+					dotprod = dot(transY,matY)
+					invers = linalg.inv(dotprod)
+					dagger = dot(invers,transY)
+					final = dot(dagger,b)
+					for  
+
+	
+a = Dataset()
+a.readData("iris.data")
+a.writeData("iris")
+#print a.data[0].classLabel
+#l = splitDataset(a,4)
+#l[0].writeData("1")
+#l[1].writeData("2")
+#l[2].writeData("3")
+#l[3].writeData("4")
+#s = mergeDatasets(l,2,[0,2])
+#s.writeData("merge")
+b = LinearClassifier()
+b.learnModel(a,5,1)
+
+

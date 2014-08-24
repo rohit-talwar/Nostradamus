@@ -1,0 +1,35 @@
+
+		Assignment 2: Linear Classifiers
+		--------------------------------
+			Due: 31/8/2012; 5pm.
+			--------------------
+
+	Submission: Answers as a pdf file. Answers and code to be
+          uploaded to the portal in a zip file.
+
+
+1. Implement the linear classifier learning algorithms that was
+   covered in the class. Use the class and function structure given.
+   The structure is given in C++, but you are free to use Java/Python
+   with the same structure. If you are using C++, complete the class
+   definitions in the .h file and use a .cpp file to implement them.
+   You may use any matrix library such as Newmat or Armadillo.
+
+
+2. Use the same datasets you used for Assignment 1, and perform 5-fold
+   cross-validation on each dataset. i.e., divide the dataset into 5
+   non-overlapping partitions (using the splitDataset() function) and
+   in each fold, test using one of the folds while training using the
+   other four. Report the average error, standard deviation of error
+   and the confusion matrix.
+
+   Perform the above using at-least two different learning algorithms and
+   two different combination strategies. Give detailed report of the
+   results and your observations on them.
+
+3. Prove that the single sample relaxation algorithm with fixed
+   margin will converge to a solution if one exists.
+
+4. Give an example of a 2-D classification problem with two classes
+   where the pseudo-inverse method fails due to singularity of the
+   matrix to be inverted.
